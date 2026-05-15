@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Archivist",
+  "version": "1.0.0",
+  "description": "Archive open tabs by domain to a local JSON file",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://localhost/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Archivist"
+  }
+}

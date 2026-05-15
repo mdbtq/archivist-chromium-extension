@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="logo">▣ Archivist</span>
+    </header>
+
+    <div class="domain-row">
+      <input type="text" id="domain-input" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <button id="search-btn">↵</button>
+    </div>
+
+    <div id="tabs-section" class="hidden">
+      <div class="tabs-header">
+        <span id="tab-count"></span>
+        <div class="row-actions">
+          <button id="select-all-btn" class="small">All</button>
+          <button id="deselect-all-btn" class="small">None</button>
+        </div>
+      </div>
+      <div id="tabs-list"></div>
+      <div class="option-row">
+        <label class="checkbox-label">
+          <input type="checkbox" id="close-tabs-cb">
+          Close after archiving
+        </label>
+      </div>
+      <input type="text" id="label-input" class="label-input" placeholder="Label (optional)" autocomplete="off">
+      <button id="archive-btn" class="primary">Archive Selected Tabs</button>
+    </div>
+
+    <div id="empty-state" class="hidden empty">No tabs found for this domain.</div>
+    <div id="status" class="hidden"></div>
+
+    <footer>
+      <button id="open-viewer-btn" class="link-btn">Open Viewer →</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

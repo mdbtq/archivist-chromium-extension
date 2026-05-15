@@ -1,4 +1,4 @@
-# Archivist
+# Archivist - Chromium Extension
 
 A Chromium extension that archives all open tabs for a given domain into a local JSON file, paired with a Node.js viewer to browse your archives.
 

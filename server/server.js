@@ -81,7 +81,9 @@ function shutdown(reason) {
 }
 
 function listen(port) {
-  server = app.listen(port)
+  // Loopback only: the endpoints are unauthenticated, so binding every
+  // interface would let anyone on the same network read, delete or shut down.
+  server = app.listen(port, '127.0.0.1')
     .on('listening', () => {
       activePort = port;
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });

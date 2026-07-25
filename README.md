@@ -8,7 +8,8 @@ A Chromium extension that archives all open tabs for a given domain into a local
 ## How it works
 
 1. Click the extension icon — it detects the current domain and lists all matching open tabs
-2. Select the tabs you want to keep, add an optional label, and hit **Archive**
+2. Select the tabs you want to keep, choose whether they start a new archive or
+   are added to an existing one for that domain, and hit **Archive**
 3. The local server saves the archive to `server/data/archives.json`
 4. Open the viewer at `http://localhost:3000` to browse, search, and manage your archives
 

@@ -46,6 +46,23 @@ app.post('/api/archive', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/archives/:id/tabs', (req, res) => {
+  const { tabs } = req.body;
+  if (!Array.isArray(tabs) || tabs.length === 0) {
+    return res.status(400).json({ error: 'tabs are required' });
+  }
+  const data = read();
+  const archive = data.archives.find(a => a.id === req.params.id);
+  if (!archive) return res.status(404).json({ error: 'Not found' });
+
+  // Skip URLs the archive already holds, so re-archiving a domain is idempotent.
+  const known = new Set(archive.tabs.map(t => t.url));
+  const added = tabs.filter(t => !known.has(t.url));
+  archive.tabs.push(...added);
+  write(data);
+  res.json({ success: true, added: added.length, skipped: tabs.length - added.length });
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, pid: process.pid, port: activePort }));
 
 app.post('/api/shutdown', (_req, res) => {

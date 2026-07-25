@@ -3,6 +3,7 @@ const HOST_NAME = 'nl.mdbtq.archivist';
 let SERVER = null;
 let hostAvailable = true;
 let tabs = [];
+let archives = [];
 
 async function findServer(base = 3000, range = 10) {
   for (let port = base; port < base + range; port++) {
@@ -75,6 +76,59 @@ function render() {
   list.replaceChildren(...tabs.map((t, i) => createTabItem(t, i)));
 }
 
+function archiveOptionText(archive) {
+  const when = new Date(archive.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const parts = [archive.label || archive.domain, `${archive.tabs.length} tabs`, when];
+  return parts.join(' · ');
+}
+
+/**
+ * Lists existing archives for the domain as append targets. Archives of other
+ * domains are left out: they would be mixed into a card labelled with a domain
+ * the tabs don't belong to.
+ */
+function renderTargets(domain) {
+  const sel = document.getElementById('target-select');
+  const current = sel.value;
+
+  const options = [document.createElement('option')];
+  options[0].value = '';
+  options[0].textContent = 'New archive';
+
+  for (const archive of archives.filter(a => a.domain === domain)) {
+    const opt = document.createElement('option');
+    opt.value = archive.id;
+    opt.textContent = archiveOptionText(archive);
+    options.push(opt);
+  }
+
+  sel.replaceChildren(...options);
+  // Keep the chosen target across a re-render if it still exists.
+  sel.value = options.some(o => o.value === current) ? current : '';
+  syncLabelInput();
+}
+
+/** The label belongs to the target archive, so it only applies to new ones. */
+function syncLabelInput() {
+  const appending = document.getElementById('target-select').value !== '';
+  document.getElementById('label-input').classList.toggle('hidden', appending);
+  document.getElementById('archive-btn').textContent =
+    appending ? 'Add to Selected Archive' : 'Archive Selected Tabs';
+}
+
+async function loadArchives() {
+  if (!SERVER) {
+    archives = [];
+    return;
+  }
+  try {
+    const res = await fetch(`${SERVER}/api/archives`, { signal: AbortSignal.timeout(2000) });
+    archives = res.ok ? await res.json() : [];
+  } catch {
+    archives = [];
+  }
+}
+
 async function load(domain) {
   const all = await chrome.tabs.query({});
   tabs = all.filter(t => {
@@ -85,6 +139,7 @@ async function load(domain) {
   const section = document.getElementById('tabs-section');
   const empty = document.getElementById('empty-state');
   document.getElementById('status').classList.add('hidden');
+  renderTargets(domain);
 
   if (tabs.length === 0) {
     section.classList.add('hidden');
@@ -106,24 +161,47 @@ async function archive() {
   const domain = document.getElementById('domain-input').value.trim();
   const label = document.getElementById('label-input').value.trim() || null;
   const closeAfter = document.getElementById('close-tabs-cb').checked;
+  const targetId = document.getElementById('target-select').value;
+
+  const payloadTabs = selected.map(t => ({
+    title: t.title || null,
+    url: t.url,
+    favIconUrl: t.favIconUrl?.startsWith('http') ? t.favIconUrl : null,
+  }));
+
+  const request = targetId
+    ? { url: `${SERVER}/api/archives/${encodeURIComponent(targetId)}/tabs`, body: { tabs: payloadTabs } }
+    : { url: `${SERVER}/api/archive`, body: { domain, label, tabs: payloadTabs } };
 
   try {
-    const res = await fetch(`${SERVER}/api/archive`, {
+    const res = await fetch(request.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        domain,
-        label,
-        tabs: selected.map(t => ({
-          title: t.title || null,
-          url: t.url,
-          favIconUrl: t.favIconUrl?.startsWith('http') ? t.favIconUrl : null,
-        })),
-      }),
+      body: JSON.stringify(request.body),
     });
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      // A stale target is the one failure the user can act on, so name it.
+      if (targetId && res.status === 404) {
+        await loadArchives();
+        renderTargets(domain);
+        return showStatus('That archive no longer exists. Pick another target.', 'error');
+      }
+      throw new Error();
+    }
+
     if (closeAfter) await chrome.tabs.remove(selected.map(t => t.id).filter(Boolean));
-    showStatus(`✓ Archived ${selected.length} tab${selected.length !== 1 ? 's' : ''}`, 'success');
+
+    if (targetId) {
+      const { added, skipped } = await res.json();
+      const suffix = skipped ? `, ${skipped} already there` : '';
+      showStatus(`✓ Added ${added} tab${added !== 1 ? 's' : ''}${suffix}`, 'success');
+    } else {
+      showStatus(`✓ Archived ${selected.length} tab${selected.length !== 1 ? 's' : ''}`, 'success');
+    }
+
+    // Reflect the new tab counts (and any new archive) in the target list.
+    await loadArchives();
+    renderTargets(domain);
   } catch {
     showStatus('Server unreachable — start it with: cd server && npm start', 'error');
   }
@@ -178,6 +256,9 @@ async function startServer() {
   }
 
   if (await refreshServerState()) {
+    // Targets could not be fetched while the server was down.
+    await loadArchives();
+    renderTargets(document.getElementById('domain-input').value.trim());
     showStatus('✓ Server started', 'success');
   } else {
     showStatus('Server started but is not responding yet. Try reopening the popup.', 'error');
@@ -235,10 +316,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const domain = hostname(cur?.url || '');
   if (domain) document.getElementById('domain-input').value = domain;
 
-  await Promise.all([
-    domain ? load(domain) : Promise.resolve(),
-    refreshServerState(),
-  ]);
+  // The archive list needs a resolved SERVER, so fetch it before rendering tabs.
+  await refreshServerState();
+  await loadArchives();
+  if (domain) await load(domain);
 
   document.getElementById('server-toggle-btn').onclick = e =>
     e.currentTarget.dataset.action === 'stop' ? stopServer() : startServer();
@@ -257,6 +338,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('deselect-all-btn').onclick = () =>
     document.querySelectorAll('#tabs-list input').forEach(cb => (cb.checked = false));
+
+  document.getElementById('target-select').onchange = syncLabelInput;
 
   document.getElementById('archive-btn').onclick = archive;
 

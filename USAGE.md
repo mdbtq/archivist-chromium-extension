@@ -71,12 +71,28 @@ server yourself from a terminal.
 2. The domain of the current tab is filled in, and every open tab on that domain
    is listed with a checkbox — all selected by default
 3. Uncheck anything you do not want to keep, or use **All** / **None**
-4. Optionally type a label, such as `pricing research` or `bug #412`, to help you
-   recognise the archive later
-5. Tick **Close after archiving** if you want the tabs closed once they are saved
-6. Click **Archive Selected Tabs**
+4. Tick **Close after archiving** if you want the tabs closed once they are saved
+5. Choose where the tabs go with the dropdown — **New archive**, or an existing
+   archive to add them to (see below)
+6. For a new archive, optionally type a label, such as `pricing research` or
+   `bug #412`, to help you recognise it later
+7. Click **Archive Selected Tabs**
 
 A green confirmation tells you how many tabs were saved.
+
+### Adding to an existing archive
+
+The dropdown lists the archives you already saved for the domain in the box,
+newest first, each with its label, tab count and date. Pick one and the button
+changes to **Add to Selected Archive**: the tabs are appended to that archive
+instead of creating a new one in the viewer.
+
+Tabs whose URL the archive already holds are skipped, so you can re-archive a
+domain without ending up with duplicates. The confirmation reports both counts,
+for example `✓ Added 3 tabs, 2 already there`.
+
+The label box is hidden while an existing archive is selected, because the
+archive keeps the label it was created with.
 
 To archive a different site than the one you are on, type its domain in the box
 at the top and press Enter. Subdomains are included: searching `example.com`

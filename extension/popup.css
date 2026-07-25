@@ -22,6 +22,44 @@ body {
 header {
   padding-bottom: 10px;
   border-bottom: 1px solid #2c2e33;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.server-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.server-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #868e96;
+}
+
+.server-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5c5f66;
+  flex-shrink: 0;
+}
+
+.server-status.running .dot {
+  background: #51cf66;
+}
+
+.server-status.stopped .dot {
+  background: #ff6b6b;
+}
+
+.server-status.busy .dot {
+  background: #fcc419;
 }
 
 .logo {

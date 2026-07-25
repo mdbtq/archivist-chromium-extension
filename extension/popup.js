@@ -1,4 +1,7 @@
+const HOST_NAME = 'nl.mdbtq.archivist';
+
 let SERVER = null;
+let hostAvailable = true;
 let tabs = [];
 
 async function findServer(base = 3000, range = 10) {
@@ -11,6 +14,27 @@ async function findServer(base = 3000, range = 10) {
     } catch { /* try next */ }
   }
   return null;
+}
+
+/**
+ * Sends a single command to the native messaging host. Resolves to null when the
+ * host is not registered, which is the normal state until install-host.js runs.
+ */
+function callHost(command) {
+  return new Promise(resolve => {
+    try {
+      chrome.runtime.sendNativeMessage(HOST_NAME, { command }, response => {
+        if (chrome.runtime.lastError) {
+          hostAvailable = false;
+          return resolve(null);
+        }
+        resolve(response);
+      });
+    } catch {
+      hostAvailable = false;
+      resolve(null);
+    }
+  });
 }
 
 function hostname(url) {
@@ -105,6 +129,100 @@ async function archive() {
   }
 }
 
+function renderServerState(state, detail) {
+  const wrap = document.getElementById('server-status');
+  const label = document.getElementById('server-label');
+  const btn = document.getElementById('server-toggle-btn');
+
+  wrap.className = `server-status ${state}`;
+  label.textContent = detail;
+  btn.dataset.action = state === 'running' ? 'stop' : 'start';
+
+  if (state === 'busy') {
+    btn.textContent = '…';
+    btn.disabled = true;
+  } else {
+    btn.textContent = state === 'running' ? 'Stop' : 'Start';
+    // Starting requires the native host; stopping goes through the server itself.
+    btn.disabled = state === 'stopped' && !hostAvailable;
+  }
+
+  document.getElementById('archive-btn').disabled = !SERVER;
+  document.getElementById('open-viewer-btn').disabled = !SERVER;
+}
+
+/** Refreshes SERVER and the header state. Returns true when the server is up. */
+async function refreshServerState() {
+  SERVER = await findServer();
+  if (SERVER) {
+    renderServerState('running', `Server on :${new URL(SERVER).port}`);
+    return true;
+  }
+  // Probe the host so the Start button reflects whether it can actually work.
+  if (hostAvailable) await callHost('status');
+  renderServerState('stopped', hostAvailable ? 'Server stopped' : 'Host not installed');
+  return false;
+}
+
+async function startServer() {
+  renderServerState('busy', 'Starting…');
+
+  const res = await callHost('start');
+  if (!res) {
+    renderServerState('stopped', 'Host not installed');
+    return showStatus('Native host not registered. Run: node host/install-host.js <extension-id>', 'error');
+  }
+  if (res.error) {
+    await refreshServerState();
+    return showStatus(res.error, 'error');
+  }
+
+  if (await refreshServerState()) {
+    showStatus('✓ Server started', 'success');
+  } else {
+    showStatus('Server started but is not responding yet. Try reopening the popup.', 'error');
+  }
+}
+
+/**
+ * Polls a single origin until it stops answering. The shutdown response is sent
+ * before the process actually exits, so the port stays live for a moment after.
+ */
+async function waitUntilDown(origin, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(400) });
+      if (!res.ok) return true;
+    } catch {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  return false;
+}
+
+async function stopServer() {
+  renderServerState('busy', 'Stopping…');
+  const origin = SERVER;
+
+  // Ask the server to exit itself; this works even without the native host.
+  let accepted = false;
+  try {
+    const res = await fetch(`${origin}/api/shutdown`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(2000),
+    });
+    accepted = res.ok;
+  } catch { /* fall back to the host */ }
+
+  if (!accepted) await callHost('stop');
+
+  const down = await waitUntilDown(origin);
+  await refreshServerState();
+  showStatus(down ? '✓ Server stopped' : 'Server did not stop.', down ? 'success' : 'error');
+}
+
 function showStatus(msg, type) {
   const el = document.getElementById('status');
   el.textContent = msg;
@@ -117,16 +235,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const domain = hostname(cur?.url || '');
   if (domain) document.getElementById('domain-input').value = domain;
 
-  const [, found] = await Promise.all([
+  await Promise.all([
     domain ? load(domain) : Promise.resolve(),
-    findServer(),
+    refreshServerState(),
   ]);
 
-  SERVER = found;
-  if (!SERVER) {
-    showStatus('Server not found on ports 3000–3009. Run: cd server && npm start', 'error');
-    document.getElementById('archive-btn').disabled = true;
-  }
+  document.getElementById('server-toggle-btn').onclick = e =>
+    e.currentTarget.dataset.action === 'stop' ? stopServer() : startServer();
 
   document.getElementById('search-btn').onclick = () => {
     const d = document.getElementById('domain-input').value.trim();

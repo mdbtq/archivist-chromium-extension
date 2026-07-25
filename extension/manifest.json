@@ -3,7 +3,7 @@
   "name": "Archivist",
   "version": "1.0.0",
   "description": "Archive open tabs by domain to a local JSON file",
-  "permissions": ["tabs"],
+  "permissions": ["tabs", "nativeMessaging"],
   "host_permissions": ["http://localhost/*"],
   "action": {
     "default_popup": "popup.html",

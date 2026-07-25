@@ -1,3 +1,5 @@
 node_modules/
 server/data/
+host/node-path
+.playwright-mcp/
 .DS_Store

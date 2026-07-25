@@ -585,7 +585,7 @@
       const h2 = document.createElement('h2');
       h2.textContent = 'Could not load archives';
       const p = document.createElement('p');
-      p.textContent = 'Make sure the server is running on localhost:3000.';
+      p.textContent = `Make sure the server is running on ${location.host}.`;
       msg.appendChild(h2);
       msg.appendChild(p);
       main.appendChild(msg);

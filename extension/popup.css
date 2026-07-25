@@ -131,6 +131,7 @@ button.small {
   justify-content: space-between;
   color: #868e96;
   font-size: 12px;
+  margin-bottom: 10px;
 }
 
 .row-actions {
@@ -144,6 +145,7 @@ button.small {
   border-radius: 6px;
   max-height: 240px;
   overflow-y: auto;
+  margin-bottom: 10px;
 }
 
 .tab-item {
@@ -187,6 +189,7 @@ button.small {
 .option-row {
   display: flex;
   align-items: center;
+  margin-bottom: 10px;
 }
 
 .checkbox-label {
@@ -198,6 +201,7 @@ button.small {
   color: #868e96;
 }
 
+.target-select,
 .label-input {
   width: 100%;
   padding: 6px 10px;
@@ -209,8 +213,18 @@ button.small {
   outline: none;
 }
 
+.target-select {
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.target-select:focus,
 .label-input:focus {
   border-color: #5c7cfa;
+}
+
+#archive-btn {
+  margin-top: 10px;
 }
 
 #status {
@@ -239,8 +253,8 @@ button.small {
 }
 
 footer {
-  padding-top: 8px;
-  border-top: 1px solid #2c2e33;
+  /* padding-top: 8px; */
+  /* border-top: 1px solid #2c2e33; */
   display: flex;
   justify-content: flex-end;
 }

@@ -5,9 +5,11 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Parse, so the EADDRINUSE fallback increments the port instead of concatenating.
+const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'archives.json');
+const RUNTIME_FILE = path.join(DATA_DIR, 'runtime.json');
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -44,7 +46,13 @@ app.post('/api/archive', (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, pid: process.pid, port: activePort }));
+
+app.post('/api/shutdown', (_req, res) => {
+  res.json({ success: true });
+  // Give the response time to flush before tearing the process down.
+  setTimeout(() => shutdown('api'), 50);
+});
 
 app.get('/api/archives', (_req, res) => {
   res.json(read().archives);
@@ -59,9 +67,27 @@ app.delete('/api/archives/:id', (req, res) => {
   res.json({ success: true });
 });
 
+let activePort = null;
+let server = null;
+
+function shutdown(reason) {
+  console.log(`Archivist shutting down (${reason})`);
+  try {
+    if (fs.existsSync(RUNTIME_FILE)) fs.unlinkSync(RUNTIME_FILE);
+  } catch { /* best effort */ }
+  server?.close(() => process.exit(0));
+  // Don't wait for lingering keep-alive connections.
+  setTimeout(() => process.exit(0), 1000).unref();
+}
+
 function listen(port) {
-  app.listen(port)
-    .on('listening', () => console.log(`Archivist running at http://localhost:${port}`))
+  server = app.listen(port)
+    .on('listening', () => {
+      activePort = port;
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(RUNTIME_FILE, JSON.stringify({ pid: process.pid, port }, null, 2));
+      console.log(`Archivist running at http://localhost:${port}`);
+    })
     .on('error', err => {
       if (err.code === 'EADDRINUSE') {
         console.log(`Port ${port} in use, trying ${port + 1}…`);
@@ -70,6 +96,10 @@ function listen(port) {
         throw err;
       }
     });
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => shutdown(signal));
 }
 
 listen(PORT);

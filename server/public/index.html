@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Archivist</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -50,6 +52,15 @@
       color: #e8e9ea;
       letter-spacing: -0.4px;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-mark {
+      width: 18px;
+      height: 18px;
+      display: block;
     }
 
     .logo-accent { color: var(--accent); }
@@ -303,7 +314,7 @@
 <body>
 
 <div class="header">
-  <span class="logo">▣ <span class="logo-accent">Archivist</span></span>
+  <span class="logo"><img class="logo-mark" src="/favicon.svg" alt=""> <span class="logo-accent">Archivist</span></span>
   <span class="header-stats" id="stats"></span>
 </div>
 

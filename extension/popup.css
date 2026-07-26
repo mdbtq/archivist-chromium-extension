@@ -67,6 +67,15 @@ header {
   font-weight: 700;
   color: #e8e9ea;
   letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.logo-mark {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .domain-row {

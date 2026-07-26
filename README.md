@@ -75,7 +75,7 @@ archivist/
 │   ├── popup.html
 │   ├── popup.css
 │   ├── popup.js
-│   └── icons/          # icon.svg is the source; PNGs are derived from it
+│   └── icons/          # logomark: icon.svg plus the PNG sizes Chrome uses
 ├── host/               # Native messaging host (start/stop the server)
 │   ├── archivist_host.js
 │   ├── archivist_host.sh
@@ -89,25 +89,6 @@ archivist/
         ├── favicon.svg
         └── favicon.png
 ```
-
-## Icons
-
-`extension/icons/icon.svg` is the single source for the logomark. The PNGs next
-to it are the sizes Chrome asks for, and `server/public/favicon.*` is the same
-mark serving as the viewer favicon.
-
-The mark carries a fixed fill rather than `currentColor`, because a toolbar icon
-inherits no CSS context. After changing the SVG, regenerate the PNGs and copy
-them across:
-
-```bash
-cd extension/icons
-for s in 16 32 48 128; do sips -s format png -z $s $s icon.svg --out icon-$s.png; done
-cp icon.svg ../../server/public/favicon.svg
-cp icon-32.png ../../server/public/favicon.png
-```
-
-`sips` is built into macOS; on other platforms use any SVG rasteriser.
 
 ## Requirements
 

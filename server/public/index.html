@@ -284,6 +284,33 @@
 
     .tab-link:hover { text-decoration: underline; }
 
+    .tab-remove {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.1s, background 0.15s, color 0.15s;
+    }
+
+    .tab-entry:hover .tab-remove { opacity: 1; }
+
+    .tab-remove:focus-visible { opacity: 1; outline: 1px solid var(--accent); }
+
+    .tab-remove:hover {
+      background: rgba(255, 107, 107, 0.12);
+      color: var(--danger);
+    }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -323,6 +350,7 @@
     <option value="">All domains</option>
   </select>
   <input type="text" class="filter-search" id="search" placeholder="Search titles or URLs…" autocomplete="off">
+  <button class="btn" id="merge-btn">⿻ Merge hosts</button>
   <button class="btn" id="refresh-btn">↻ Refresh</button>
 </div>
 
@@ -369,7 +397,7 @@
 
   // ── DOM builders ─────────────────────────────────────────
 
-  function buildTabEntry(tab) {
+  function buildTabEntry(tab, archiveId) {
     const row = document.createElement('div');
     row.className = 'tab-entry';
 
@@ -403,6 +431,14 @@
     link.title = tab.url;
     link.textContent = urlPath(tab.url);
     row.appendChild(link);
+
+    const remove = document.createElement('button');
+    remove.className = 'tab-remove';
+    remove.textContent = '×';
+    remove.title = 'Remove from archive';
+    remove.setAttribute('aria-label', `Remove ${tab.title || tab.url} from archive`);
+    remove.onclick = () => removeTab(archiveId, tab.url);
+    row.appendChild(remove);
 
     return row;
   }
@@ -478,7 +514,7 @@
     // Tab list
     const list = document.createElement('div');
     list.className = 'tab-list';
-    archive.tabs.forEach(t => list.appendChild(buildTabEntry(t)));
+    archive.tabs.forEach(t => list.appendChild(buildTabEntry(t, archive.id)));
     card.appendChild(list);
 
     return card;
@@ -500,6 +536,39 @@
     archive.tabs.forEach(t => window.open(safeHref(t.url), '_blank', 'noopener'));
   }
 
+  async function removeTab(archiveId, url) {
+    const archive = archives.find(a => a.id === archiveId);
+    if (!archive) return;
+
+    try {
+      const res = await fetch(`/api/archives/${encodeURIComponent(archiveId)}/tabs`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) throw new Error();
+      const { archiveRemoved } = await res.json();
+
+      if (archiveRemoved) {
+        archives = archives.filter(a => a.id !== archiveId);
+        updateDomainFilter();
+        applyFilter();
+      } else {
+        archive.tabs = archive.tabs.filter(t => t.url !== url);
+        // Patch the open card in place so removing a tab doesn't collapse it.
+        const card = document.querySelector(`.card[data-id="${CSS.escape(archiveId)}"]`);
+        card?.querySelector('.tab-count')
+          ?.replaceChildren(`${archive.tabs.length} tab${archive.tabs.length !== 1 ? 's' : ''}`);
+        const list = card?.querySelector('.tab-list');
+        if (list) list.replaceChildren(...archive.tabs.map(t => buildTabEntry(t, archiveId)));
+      }
+      updateStats();
+      toast(archiveRemoved ? 'Archive deleted (last tab removed)' : 'Tab removed');
+    } catch {
+      toast('Failed to remove tab', 'error');
+    }
+  }
+
   async function deleteArchive(id) {
     if (!confirm('Delete this archive?')) return;
     try {
@@ -512,6 +581,26 @@
       toast('Archive deleted');
     } catch {
       toast('Failed to delete archive', 'error');
+    }
+  }
+
+  async function mergeDomains() {
+    const counts = archives.reduce((m, a) => m.set(a.domain, (m.get(a.domain) ?? 0) + 1), new Map());
+    const duplicates = [...counts.values()].filter(n => n > 1);
+    if (duplicates.length === 0) return toast('No hosts to merge');
+
+    const hosts = duplicates.length;
+    const total = duplicates.reduce((s, n) => s + n, 0);
+    if (!confirm(`Merge ${total} archives into ${hosts} host${hosts !== 1 ? 's' : ''}?`)) return;
+
+    try {
+      const res = await fetch('/api/archives/merge', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { removed } = await res.json();
+      await loadArchives();
+      toast(`Merged ${removed} archive${removed !== 1 ? 's' : ''}`);
+    } catch {
+      toast('Failed to merge archives', 'error');
     }
   }
 
@@ -605,6 +694,7 @@
 
   document.getElementById('domain-filter').addEventListener('change', applyFilter);
   document.getElementById('search').addEventListener('input', applyFilter);
+  document.getElementById('merge-btn').addEventListener('click', mergeDomains);
   document.getElementById('refresh-btn').addEventListener('click', loadArchives);
 
   loadArchives();

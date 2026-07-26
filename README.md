@@ -64,7 +64,8 @@ Navigate to `http://localhost:3000` to view all archives. The viewer supports:
 - Full-text search across titles and URLs
 - Copy all URLs from an archive to clipboard
 - Open all archived tabs at once
-- Delete archives
+- Delete archives, or remove individual tabs from one
+- Merge archives that share the same domain
 
 ## Project structure
 

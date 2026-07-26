@@ -114,9 +114,13 @@ What you can do there:
 - **Open all** to reopen the whole archive in new tabs — you are asked to confirm
   when an archive holds more than ten tabs
 - **Delete** to remove an archive permanently
+- **×** next to a single page to drop just that one from its archive — removing
+  the last page deletes the archive with it
+- **⿻ Merge hosts** to fold every archive of the same domain into one, keeping
+  the newest and skipping pages it already holds
 - **↻ Refresh** to reload the list
 
-Deleting an archive cannot be undone.
+Deleting an archive, removing a page and merging cannot be undone.
 
 ## Starting and stopping the server
 

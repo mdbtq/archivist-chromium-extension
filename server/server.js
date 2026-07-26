@@ -63,6 +63,68 @@ app.post('/api/archives/:id/tabs', (req, res) => {
   res.json({ success: true, added: added.length, skipped: tabs.length - added.length });
 });
 
+app.delete('/api/archives/:id/tabs', (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url is required' });
+
+  const data = read();
+  const archive = data.archives.find(a => a.id === req.params.id);
+  if (!archive) return res.status(404).json({ error: 'Not found' });
+
+  const remaining = archive.tabs.filter(t => t.url !== url);
+  if (remaining.length === archive.tabs.length) {
+    return res.status(404).json({ error: 'Tab not found' });
+  }
+
+  // An archive without tabs has no meaning, so drop it rather than keep a husk.
+  const archiveRemoved = remaining.length === 0;
+  if (archiveRemoved) {
+    data.archives = data.archives.filter(a => a.id !== archive.id);
+  } else {
+    archive.tabs = remaining;
+  }
+  write(data);
+  res.json({ success: true, archiveRemoved });
+});
+
+app.post('/api/archives/merge', (_req, res) => {
+  const data = read();
+  const groups = new Map();
+  for (const archive of data.archives) {
+    if (!groups.has(archive.domain)) groups.set(archive.domain, []);
+    groups.get(archive.domain).push(archive);
+  }
+
+  const merged = [];
+  let removed = 0;
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      continue;
+    }
+    // Archives are stored newest-first, so the head keeps its id and timestamp.
+    const [target, ...rest] = group;
+    const known = new Set(target.tabs.map(t => t.url));
+    for (const source of rest) {
+      for (const tab of source.tabs) {
+        if (known.has(tab.url)) continue;
+        known.add(tab.url);
+        target.tabs.push(tab);
+      }
+      target.label = target.label || source.label;
+    }
+    removed += rest.length;
+    merged.push(target);
+  }
+
+  if (removed === 0) return res.json({ success: true, merged: 0, removed: 0 });
+
+  // Preserve the original newest-first ordering of the surviving archives.
+  data.archives = merged.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  write(data);
+  res.json({ success: true, merged: groups.size, removed });
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, pid: process.pid, port: activePort }));
 
 app.post('/api/shutdown', (_req, res) => {
